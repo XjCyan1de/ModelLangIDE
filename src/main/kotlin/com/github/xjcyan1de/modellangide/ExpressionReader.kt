@@ -1,7 +1,7 @@
 package com.github.xjcyan1de.modellangide
 
-class TokenReader(val charReader: CharReader) {
-    var current: Token? = null
+class ExpressionReader(val charReader: CharReader) {
+    var current: SimpleExpression? = null
 
     fun readWhile(predicate: (Char) -> Boolean): String {
         val sb = StringBuilder()
@@ -11,9 +11,9 @@ class TokenReader(val charReader: CharReader) {
         return sb.toString()
     }
 
-    fun readInt(): IntegerSimpleExpression {
+    fun readInt(): IntegerExpression {
         val string = readWhile { it.isDigit() }
-        return IntegerSimpleExpression(string.toInt())
+        return IntegerExpression(string)
     }
 
     fun readId(): Identifier {
@@ -45,13 +45,13 @@ class TokenReader(val charReader: CharReader) {
         charReader.next()
     }
 
-    fun readNext(): Token? {
+    fun readNext(): SimpleExpression? {
         readWhile { it.isWhiteSpace() }
         if (!charReader.hasNext()) return null
         val ch = charReader.peek()
         return when {
             ch.isDigit() -> readInt()
-            ch.isPunctuation() -> Punctuation(charReader.next())
+            ch.isPunctuation() -> Punctuation(charReader.next().toString())
             ch.isOperator() -> Operator(readWhile { it.isOperator() })
             ch.isLetter() -> {
                 val value = readWhile { it.isLetter() }
@@ -61,15 +61,12 @@ class TokenReader(val charReader: CharReader) {
         }
     }
 
-    fun peek(): Token? {
-        val token = current ?: readNext()?.also { current = it }
-        return token
-    }
+    fun peek(): SimpleExpression? = current ?: readNext()?.also { current = it }
 
-    fun next(): Token? {
-        val token = current ?: readNext()
+    fun next(): SimpleExpression? {
+        val expression = current ?: readNext()
         current = null
-        return token
+        return expression
     }
 
     fun hasNext(): Boolean = peek() != null
