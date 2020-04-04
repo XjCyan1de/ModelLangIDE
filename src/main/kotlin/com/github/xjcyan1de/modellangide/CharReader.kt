@@ -22,5 +22,5 @@ class CharReader(val charArray: CharArray) {
 
     fun error(message: String): Nothing = throw ReaderException(message)
 
-    inner class ReaderException(message: String) : Exception("$message ($line:$col)")
+    inner class ReaderException(message: String) : Exception("$message ($line)")
 }
