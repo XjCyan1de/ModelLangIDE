@@ -84,9 +84,12 @@ fun String.isKeyWord() = keyWords.contains(this)
 
 fun main() {
     val text = """
-        @x = 10; @second = 20;
-
-        x * 2 + second / x * 3;
+        @x  = 10;
+        @second = 20;
+        if (second - 19) {
+          x + 1;
+        }
+        x*second + second/x*3;
         
         
     """.trimIndent()
@@ -100,7 +103,12 @@ fun main() {
     }
 
     println("\nparsing...\n")
-    Parser(expressionReader).parse()
+    val parse = Parser(expressionReader).parse()
+    println("\nresult: ${parse.size}\n")
+    parse.forEach {
+        println(it)
+    }
+    println("\n")
 
 
 //    while (expressionReader.hasNext()) {
@@ -121,26 +129,26 @@ class Parser(val reader: TokenReader) {
         return expression != null && expression::class.isSuperclassOf(tokenClass) && if (value != null) expression.value == value else true
     }
 
-    fun parse() {
-        parseBlock()
+    fun parse(): StatementList {
+        return delemited(null, null, ";")
     }
 
     fun parseBlock(): StatementList = delemited("{", "}", ";")
 
-    private fun delemited(start: String, stop: String, separator: String): StatementList {
+    private fun delemited(start: String? = null, stop: String?=null, separator: String): StatementList {
         val list = StatementList()
-        var first = true
-        while (reader.hasNext()) {
-            if (isToken<Punctuation>(stop)) break
-            if (first) {
-                first = false
-            } else {
-                skipToken<Punctuation>(separator)
-            }
-            if (isToken<Punctuation>(stop)) break
-            list.add(parseStatement())
+        if (start != null) {
+            skipToken<Punctuation>(start)
         }
-        skipToken<Punctuation>(stop)
+        while (reader.hasNext()) {
+            if(isToken<Punctuation>(stop)) break
+            val statement = parseStatement()
+            list.add(statement)
+            if (statement !is IfStatement) skipToken<Punctuation>(";")
+        }
+        if (stop != null) {
+            skipToken<Punctuation>(stop)
+        }
         return list
     }
 
@@ -149,7 +157,8 @@ class Parser(val reader: TokenReader) {
         return when {
             isToken<Operator>("@") -> parseAssignStatement()
             isToken<KeyWord>("if") -> parseIf()
-            else -> ExpressionStatement(parseExpression())
+            isToken<Identifier>() || isToken<IntegerExpression>() -> ExpressionStatement(parseExpression())
+            else -> reader.error("unexpected statement: ${reader.peek()}")
         }
     }
 
@@ -187,23 +196,15 @@ class Parser(val reader: TokenReader) {
     //  x * 2 + second / x * 3;
     //
     fun parseBinary(left: Expression, currentPrecedence: Int = 0): SimpleExpression {
-        val id = UUID.randomUUID().toString().substring(0,2)
-        println("[$id] parse binary: $left prec=$currentPrecedence")
-
         val operator = reader.peek()
-
         if (operator is Operator) {
-            println("[$id] operator: $operator")
-            val precedence = precedenceMap[operator.value] ?: error("")
+            val precedence = precedenceMap[operator.value] ?: -1
             if (precedence > currentPrecedence) {
                 reader.next()
-                println("[$id] priority higher $precedence>$currentPrecedence")
                 val nextAtom = parseAtom()
                 val nextBinary = parseBinary(nextAtom, precedence)
                 val nextExp = ConditionExpression(operator, left, nextBinary)
-                println("[$id] next exp = $nextExp")
                 val result = parseBinary(nextExp, currentPrecedence)
-                println()
                 return result
             }
         }
@@ -212,9 +213,8 @@ class Parser(val reader: TokenReader) {
 
     fun parseIf(): IfStatement {
         skipToken<KeyWord>("if")
-        skipToken<Punctuation>("(")
-        val condition = parseBinary(reader.next()!!)
-        skipToken<Punctuation>(")")
+
+        val condition = parseExpression()
 
         val then = if (isToken<Punctuation>("{")) {
             parseBlock()
