@@ -1,5 +1,7 @@
 package com.github.xjcyan1de.modellangide
 
+import java.util.*
+import kotlin.collections.ArrayList
 import kotlin.reflect.KClass
 import kotlin.reflect.full.isSuperclassOf
 
@@ -29,14 +31,27 @@ Integer → Целое число, помещающееся в тип int в Jav
  */
 
 interface Token {
-    val value: String? get() = null
+    val value: Any? get() = null
 }
 
-interface Expression : Statement
-interface SimpleExpression : Expression, Token
+interface Expression
+data class ConditionExpression(val operator: Operator, val left: Expression, val right: Expression) : Expression {
+    override fun toString(): String = "($left$operator$right)"
+}
 
-data class IntegerExpression(override val value: String) : SimpleExpression
-data class ConditionExpression(val operator: Operator, val left: Expression, val right: Expression) : Expression
+interface SimpleExpression : Expression, Token
+data class Identifier(override val value: String) : SimpleExpression {
+    override fun toString() = value
+}
+
+data class IntegerExpression(override val value: String) : SimpleExpression {
+    override fun toString(): String = value
+}
+
+data class FramingExpression(override val value: Expression) : SimpleExpression {
+    override fun toString(): String = value.toString()
+}
+
 
 interface Statement
 class StatementList(val list: MutableList<Statement> = ArrayList()) : Token, MutableList<Statement> by list {
@@ -47,12 +62,15 @@ data class ExpressionStatement(val expression: Expression) : Statement
 data class AssignStatement(val identifier: Identifier, val expression: Expression) : Statement
 data class IfStatement(val condition: Expression, val then: StatementList, val orElse: StatementList? = null) : Statement
 
-data class Identifier(override val value: String) : SimpleExpression
+
 data class KeyWord(override val value: String) : SimpleExpression
 data class Punctuation(override val value: String) : SimpleExpression
-data class Operator(override val value: String) : SimpleExpression
+data class Operator(override val value: String) : SimpleExpression {
+    override fun toString(): String = value
+}
 
-val keyWords = listOf("if","else")
+val precedenceMap = mapOf("=" to 1, "<" to 5, ">" to 5, "+" to 10, "-" to 10, "*" to 20, "/" to 20)
+val keyWords = listOf("if", "else")
 val opChars = listOf('@', '+', '-', '*', '/', '=', '!')
 val punctuationChars = listOf(';', '{', '}', '(', ')')
 val whiteSpaceChars = listOf(' ', '\t', '\n')
@@ -67,29 +85,34 @@ fun String.isKeyWord() = keyWords.contains(this)
 fun main() {
     val text = """
         @x = 10; @second = 20;
-        if (second - 19) {
-          x + 1;
-        }
-        x*second + second/x*3;
+
+        x * 2 + second / x * 3;
         
         
     """.trimIndent()
 
     val charReader = CharReader(text.toCharArray())
-    val expressionReader = ExpressionReader(charReader)
+    val expressionReader = TokenReader(charReader)
 
+    val a = TokenReader(CharReader(text.toCharArray()))
+    while (a.hasNext()) {
+        println(a.next())
+    }
+
+    println("\nparsing...\n")
     Parser(expressionReader).parse()
+
 
 //    while (expressionReader.hasNext()) {
 //        println(expressionReader.next())
 //    }
 }
 
-class Parser(val reader: ExpressionReader) {
+class Parser(val reader: TokenReader) {
     inline fun <reified T : Token> skipToken(value: String) = skipToken(T::class, value)
     fun <T : Token> skipToken(tokenClass: KClass<T>, value: String) {
         if (isToken(tokenClass, value)) reader.next()
-        else reader.error("Expecting ${tokenClass::class.simpleName}: '$value'")
+        else reader.error("Expecting ${tokenClass.simpleName}: '$value'")
     }
 
     inline fun <reified T : Token> isToken(value: String? = null): Boolean = isToken(T::class, value)
@@ -102,32 +125,31 @@ class Parser(val reader: ExpressionReader) {
         parseBlock()
     }
 
-    fun parseBlock(): StatementList {
-        val statementList = StatementList()
-        val closing: Boolean = isToken<Punctuation>("{")
-        if (closing) {
-            skipToken<Punctuation>("{")
-        }
+    fun parseBlock(): StatementList = delemited("{", "}", ";")
+
+    private fun delemited(start: String, stop: String, separator: String): StatementList {
+        val list = StatementList()
+        var first = true
         while (reader.hasNext()) {
-            if (closing && isToken<Punctuation>("}")) {
-                skipToken<Punctuation>("}")
-                break
+            if (isToken<Punctuation>(stop)) break
+            if (first) {
+                first = false
+            } else {
+                skipToken<Punctuation>(separator)
             }
-            val statement = parseStatement()
-            statementList.add(statement)
-            if (reader.hasNext()) skipToken<Punctuation>(";")
+            if (isToken<Punctuation>(stop)) break
+            list.add(parseStatement())
         }
-        return statementList
+        skipToken<Punctuation>(stop)
+        return list
     }
+
 
     fun parseStatement(): Statement {
         return when {
             isToken<Operator>("@") -> parseAssignStatement()
             isToken<KeyWord>("if") -> parseIf()
-            isToken<Identifier>() -> ExpressionStatement(parseExpression())
-            else -> reader.error("Unexpected statement ${reader.peek()}")
-        }.also {
-            println("Parsed statement = $it")
+            else -> ExpressionStatement(parseExpression())
         }
     }
 
@@ -141,33 +163,71 @@ class Parser(val reader: ExpressionReader) {
         return AssignStatement(identifier, expression)
     }
 
-    fun parseExpression(): Expression {
-        val left = reader.next() as SimpleExpression
-        val operator = reader.next() as Operator
-        val right = reader.next() as SimpleExpression
+    fun parseAtom(): SimpleExpression {
+        return when {
+            isToken<Punctuation>("(") -> {
+                reader.next()
+                val exp = parseExpression()
+                skipToken<Punctuation>(")")
+                exp
+            }
+            else -> {
+                val token = reader.next()
+                if (token is IntegerExpression || token is Identifier) {
+                    return token
+                }
+                reader.error("Unexpected: $token")
+            }
+        }
+    }
 
-        return ConditionExpression(operator, left, right)
+    fun parseExpression(): SimpleExpression = parseBinary(parseAtom(), 0)
+
+    //
+    //  x * 2 + second / x * 3;
+    //
+    fun parseBinary(left: Expression, currentPrecedence: Int = 0): SimpleExpression {
+        val id = UUID.randomUUID().toString().substring(0,2)
+        println("[$id] parse binary: $left prec=$currentPrecedence")
+
+        val operator = reader.peek()
+
+        if (operator is Operator) {
+            println("[$id] operator: $operator")
+            val precedence = precedenceMap[operator.value] ?: error("")
+            if (precedence > currentPrecedence) {
+                reader.next()
+                println("[$id] priority higher $precedence>$currentPrecedence")
+                val nextAtom = parseAtom()
+                val nextBinary = parseBinary(nextAtom, precedence)
+                val nextExp = ConditionExpression(operator, left, nextBinary)
+                println("[$id] next exp = $nextExp")
+                val result = parseBinary(nextExp, currentPrecedence)
+                println()
+                return result
+            }
+        }
+        return if (left is SimpleExpression) left else FramingExpression(left)
     }
 
     fun parseIf(): IfStatement {
         skipToken<KeyWord>("if")
         skipToken<Punctuation>("(")
-        val condition = parseExpression()
+        val condition = parseBinary(reader.next()!!)
         skipToken<Punctuation>(")")
-
-        println("condition = $condition next=${reader.peek()}")
 
         val then = if (isToken<Punctuation>("{")) {
             parseBlock()
-        } else error("sorry")
+        } else StatementList().also { it.add(parseStatement()) }
 
-        if (isToken<KeyWord>("else")) {
+        val orElse = if (isToken<KeyWord>("else")) {
+            skipToken<KeyWord>("else")
+            if (isToken<Punctuation>("{")) {
+                parseBlock()
+            } else StatementList().also { it.add(parseStatement()) }
+        } else null
 
-        }
-
-        println("MY CONDITIONNNN =$condition then=$then")
-
-        TODO()
+        return IfStatement(condition, then, orElse)
     }
 }
 

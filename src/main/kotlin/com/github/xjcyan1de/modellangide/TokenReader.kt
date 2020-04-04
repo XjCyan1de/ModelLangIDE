@@ -1,7 +1,8 @@
 package com.github.xjcyan1de.modellangide
 
-class ExpressionReader(val charReader: CharReader) {
+class TokenReader(val charReader: CharReader) {
     var current: SimpleExpression? = null
+    var next: SimpleExpression? = null
 
     fun readWhile(predicate: (Char) -> Boolean): String {
         val sb = StringBuilder()
@@ -66,6 +67,7 @@ class ExpressionReader(val charReader: CharReader) {
     fun next(): SimpleExpression? {
         val expression = current ?: readNext()
         current = null
+        next = peek()
         return expression
     }
 
