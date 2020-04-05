@@ -126,6 +126,10 @@ object GUI : JFrame("Model Language IDE"), CoroutineScope by GlobalScope {
 
             try {
                 val result = Parser(TokenReader(CharReader((this@GUI.textPane.text ?: "").toCharArray()))).parse()
+                result.forEach {
+                    println(it)
+                }
+
                 environment.evaluate(result)
             } catch (e: CharReader.ReaderException) {
                 sb.appendln(e.localizedMessage)

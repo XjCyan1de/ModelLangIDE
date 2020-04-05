@@ -35,7 +35,7 @@ class Parser(val reader: TokenReader) {
             skipToken<Punctuation>(start)
         }
         while (reader.hasNext()) {
-            if (isToken<Punctuation>(stop)) break
+            if (stop != null && isToken<Punctuation>(stop)) break
             val statement = parseStatement()
             list.add(statement)
             if (statement !is IfStatement) skipToken<Punctuation>(";")
@@ -51,7 +51,7 @@ class Parser(val reader: TokenReader) {
         return when {
             isToken<Operator>("@") -> parseAssignStatement()
             isToken<KeyWord>("if") -> parseIf()
-            isToken<Identifier>() || isToken<IntegerExpression>() -> ExpressionStatement(parseExpression())
+            isToken<Punctuation>("(") || isToken<Identifier>() || isToken<IntegerExpression>() -> ExpressionStatement(parseExpression())
             else -> reader.error("unexpected statement: ${reader.peek()}")
         }
     }
