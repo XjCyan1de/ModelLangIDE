@@ -13,7 +13,7 @@ import kotlin.system.exitProcess
 
 const val MAX_X = 2
 const val MAX_Y = 1
-private val FONT = Font("JetBrains Mono Regular", Font.PLAIN, 14)
+private val FONT = Font.decode(Font.MONOSPACED)
 
 val BACKGROUND_COLOR = Color(0x2b2b2b)
 val BACKGROUND_PRIMARY_COLOR = Color(0x313335)
@@ -80,19 +80,15 @@ object GUI : JFrame("Model Language IDE"), CoroutineScope by GlobalScope {
         }
     }
     val fileMenu = JMenu("File").apply {
-        font = FONT
         foreground = TEXT_COLOR
     }
     val editMenu = JMenu("Edit").apply {
-        font = FONT
         foreground = TEXT_COLOR
     }
     val viewMenu = JMenu("View").apply {
-        font = FONT
         foreground = TEXT_COLOR
     }
     val runMenu = JMenu("Run").apply {
-        font = FONT
         foreground = TEXT_COLOR
     }
     val newItem = JMenuItem("New").apply {
@@ -166,8 +162,12 @@ object GUI : JFrame("Model Language IDE"), CoroutineScope by GlobalScope {
         cursor = Cursor(Cursor.HAND_CURSOR)
         border = BorderFactory.createLineBorder(BACKGROUND_COLOR)
         addMouseListener(object : MouseListener {
-            override fun mouseEntered(e: MouseEvent) {}
-            override fun mouseExited(e: MouseEvent) {}
+            override fun mouseEntered(e: MouseEvent) {
+                foreground = Color.WHITE
+            }
+            override fun mouseExited(e: MouseEvent) {
+                foreground = TEXT_COLOR
+            }
             override fun mousePressed(e: MouseEvent) {}
             override fun mouseReleased(e: MouseEvent) {}
             override fun mouseClicked(e: MouseEvent) {
@@ -180,8 +180,12 @@ object GUI : JFrame("Model Language IDE"), CoroutineScope by GlobalScope {
         cursor = Cursor(Cursor.HAND_CURSOR)
         border = BorderFactory.createLineBorder(BACKGROUND_COLOR)
         addMouseListener(object : MouseListener {
-            override fun mouseEntered(e: MouseEvent) {}
-            override fun mouseExited(e: MouseEvent) {}
+            override fun mouseEntered(e: MouseEvent) {
+                foreground = Color.WHITE
+            }
+            override fun mouseExited(e: MouseEvent) {
+                foreground = TEXT_COLOR
+            }
             override fun mousePressed(e: MouseEvent) {}
             override fun mouseReleased(e: MouseEvent) {}
             override fun mouseClicked(e: MouseEvent) {

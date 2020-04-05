@@ -1,5 +1,10 @@
 package com.github.xjcyan1de.modellangide
 
+import java.awt.Font
+import java.awt.GraphicsEnvironment
+import javax.swing.JFrame
+import javax.swing.JTextArea
+
 interface Token {
     val value: Any? get() = null
 }
@@ -55,5 +60,7 @@ fun String.isKeyWord() = keyWords.contains(this)
 fun main() {
     GUI
     TextListener
+
+
 }
 
