@@ -1,7 +1,5 @@
 package com.github.xjcyan1de.modellangide
 
-import GUI
-
 interface Token {
     val value: Any? get() = null
 }

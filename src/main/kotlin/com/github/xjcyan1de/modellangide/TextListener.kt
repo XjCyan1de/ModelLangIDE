@@ -1,6 +1,5 @@
 package com.github.xjcyan1de.modellangide
 
-import GUI
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay

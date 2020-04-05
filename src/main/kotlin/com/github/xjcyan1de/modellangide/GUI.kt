@@ -1,7 +1,5 @@
-import com.github.xjcyan1de.modellangide.CharReader
-import com.github.xjcyan1de.modellangide.Environment
-import com.github.xjcyan1de.modellangide.Parser
-import com.github.xjcyan1de.modellangide.TokenReader
+package com.github.xjcyan1de.modellangide
+
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -15,17 +13,47 @@ import kotlin.system.exitProcess
 
 const val MAX_X = 2
 const val MAX_Y = 1
-private val FONT = Font("JetBrains Mono", 0, 14) // Шрифты не заружаются :c
+private val FONT = Font("JetBrains Mono Regular", Font.PLAIN, 14)
 
 val BACKGROUND_COLOR = Color(0x2b2b2b)
 val BACKGROUND_PRIMARY_COLOR = Color(0x313335)
 val TEXT_COLOR = Color(0xbbbbbb)
 
 object GUI : JFrame("Model Language IDE"), CoroutineScope by GlobalScope {
-    val contentPane: JPanel
+    init {
+        UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName())
+    }
+
+    private var OnTop = false
+    private var xoff = 0
+    private var yoff = 0
+    private var xOffScreen = 0
+    private var yOffScreen = 0
+    private var maximised = false
+    private var origW = 0
+    private var origH = 0
+    private var origX = 0
+    private var origY = 0
+
+    val undoManager = UndoManager()
+
+    val contentPane = object : JPanel() {
+        init {
+            layout = GridBagLayout()
+            border = null
+            background = BACKGROUND_COLOR
+            this@GUI.setContentPane(this)
+        }
+
+        override fun paintComponent(g: Graphics) {
+            super.paintComponent(g)
+            g.color = BACKGROUND_COLOR
+            g.drawRect(0, 0, width, height)
+        }
+    }
     val bar: JMenuBar = object : JMenuBar() {
         init {
-            border = null
+            border = BorderFactory.createLineBorder(BACKGROUND_PRIMARY_COLOR)
 
             addMouseListener(object : MouseListener {
                 override fun mouseClicked(e: MouseEvent) {}
@@ -48,24 +76,119 @@ object GUI : JFrame("Model Language IDE"), CoroutineScope by GlobalScope {
         override fun paintComponent(g: Graphics) {
             super.paintComponent(g)
             g.color = BACKGROUND_PRIMARY_COLOR
-            g.fillRect(0, 0, width, height)
+            g.fillRect(0, 0, width+5, height+5)
         }
     }
-    val fileMenu: JMenu
-    val editMenu: JMenu
-    val viewMenu: JMenu
-    val runMenu: JMenu
-    val newItem: JMenuItem
-    val openItem: JMenuItem
-    val saveItem: JMenuItem
-    val saveAsItem: JMenuItem
-    val undoItem: JMenuItem
-    val redoItem: JMenuItem
-    val onTopItem: JCheckBoxMenuItem
-    val closeButton: JLabel
-    val minButton: JLabel
-    val maxButton: JLabel
-    val undoManager = UndoManager()
+    val fileMenu = JMenu("File").apply {
+        font = FONT
+        foreground = TEXT_COLOR
+    }
+    val editMenu = JMenu("Edit").apply {
+        font = FONT
+        foreground = TEXT_COLOR
+    }
+    val viewMenu = JMenu("View").apply {
+        font = FONT
+        foreground = TEXT_COLOR
+    }
+    val runMenu = JMenu("Run").apply {
+        font = FONT
+        foreground = TEXT_COLOR
+    }
+    val newItem = JMenuItem("New").apply {
+        addActionListener { newFile() }
+        accelerator = KeyStroke.getKeyStroke('N'.toInt(), Toolkit.getDefaultToolkit().menuShortcutKeyMask)
+    }
+    val openItem = JMenuItem("Open").apply {
+        addActionListener { openFile() }
+        accelerator = KeyStroke.getKeyStroke('O'.toInt(), Toolkit.getDefaultToolkit().menuShortcutKeyMask)
+    }
+    val saveItem = JMenuItem("Save").apply {
+        addActionListener { saveFile() }
+        accelerator = KeyStroke.getKeyStroke('S'.toInt(), Toolkit.getDefaultToolkit().menuShortcutKeyMask)
+    }
+    val saveAsItem = JMenuItem("Save As").apply {
+        addActionListener { saveAsFile() }
+    }
+    val undoItem = JMenuItem("Undo").apply {
+        addActionListener { if (undoManager.canUndo()) undoManager.undo() else Toolkit.getDefaultToolkit().beep() }
+        accelerator = KeyStroke.getKeyStroke('Z'.toInt(), Toolkit.getDefaultToolkit().menuShortcutKeyMask)
+    }
+    val redoItem = JMenuItem("Redo").apply {
+        addActionListener { if (undoManager.canRedo()) undoManager.redo() else Toolkit.getDefaultToolkit().beep() }
+        accelerator = KeyStroke.getKeyStroke('Y'.toInt(), Toolkit.getDefaultToolkit().menuShortcutKeyMask)
+    }
+    val onTopItem = JCheckBoxMenuItem("Always On Top").apply {
+        addActionListener { e: ActionEvent? -> toggleOnTop() }
+    }
+    val runItem = JMenuItem("Run").apply {
+        addActionListener {
+            val sb = StringBuilder()
+            val environment = Environment {
+                sb.appendln(it)
+            }
+
+            try {
+                val result = Parser(TokenReader(CharReader((this@GUI.textPane.text ?: "").toCharArray()))).parse()
+                environment.evaluate(result)
+            } catch (e: CharReader.ReaderException) {
+                sb.appendln(e.localizedMessage)
+                println(e.localizedMessage)
+            } catch (e: Exception) {
+                sb.appendln(e.localizedMessage)
+                e.printStackTrace()
+            }
+
+            openDialogWindow(sb.toString(), "Run")
+        }
+    }
+    val closeButton = JLabel(" X ").apply {
+        foreground = TEXT_COLOR
+        cursor = Cursor(Cursor.HAND_CURSOR)
+        border = BorderFactory.createLineBorder(BACKGROUND_COLOR)
+        addMouseListener(object : MouseListener {
+            override fun mouseEntered(e: MouseEvent) {
+                foreground = Color.RED
+            }
+            override fun mouseExited(e: MouseEvent) {
+                foreground = TEXT_COLOR
+            }
+            override fun mousePressed(e: MouseEvent) {}
+            override fun mouseReleased(e: MouseEvent) {}
+            override fun mouseClicked(e: MouseEvent) {
+                dispose()
+                exitProcess(0)
+            }
+        })
+    }
+    val minButton = JLabel(" _ ").apply {
+        foreground = TEXT_COLOR
+        cursor = Cursor(Cursor.HAND_CURSOR)
+        border = BorderFactory.createLineBorder(BACKGROUND_COLOR)
+        addMouseListener(object : MouseListener {
+            override fun mouseEntered(e: MouseEvent) {}
+            override fun mouseExited(e: MouseEvent) {}
+            override fun mousePressed(e: MouseEvent) {}
+            override fun mouseReleased(e: MouseEvent) {}
+            override fun mouseClicked(e: MouseEvent) {
+                state = ICONIFIED
+            }
+        })
+    }
+    val maxButton = JLabel(" \u1010 ").apply {
+        foreground = TEXT_COLOR
+        cursor = Cursor(Cursor.HAND_CURSOR)
+        border = BorderFactory.createLineBorder(BACKGROUND_COLOR)
+        addMouseListener(object : MouseListener {
+            override fun mouseEntered(e: MouseEvent) {}
+            override fun mouseExited(e: MouseEvent) {}
+            override fun mousePressed(e: MouseEvent) {}
+            override fun mouseReleased(e: MouseEvent) {}
+            override fun mouseClicked(e: MouseEvent) {
+                toggleMax(false, MAX_X or MAX_Y)
+            }
+        })
+    }
     val textPane: JTextPane = JTextPane().apply {
         border = null
         font = FONT
@@ -120,20 +243,8 @@ object GUI : JFrame("Model Language IDE"), CoroutineScope by GlobalScope {
         }
     }
 
-    private var OnTop = false
-    private var xoff = 0
-    private var yoff = 0
-    private var xOffScreen = 0
-    private var yOffScreen = 0
-    private var maximised = false
-    private var origW = 0
-    private var origH = 0
-    private var origX = 0
-    private var origY = 0
 
     init {
-        UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName())
-
         defaultCloseOperation = EXIT_ON_CLOSE
         isUndecorated = true
 
@@ -147,237 +258,48 @@ object GUI : JFrame("Model Language IDE"), CoroutineScope by GlobalScope {
         })
         jMenuBar = bar
 
-        fileMenu = JMenu("File")
-        fileMenu.font = FONT
-        fileMenu.foreground = TEXT_COLOR
         bar.add(fileMenu)
-        editMenu = JMenu("Edit")
-        editMenu.font = FONT
-        editMenu.foreground = TEXT_COLOR
         bar.add(editMenu)
-        viewMenu = JMenu("View").apply {
-            font = FONT
-            foreground = TEXT_COLOR
-        }
         bar.add(viewMenu)
-        runMenu = JMenu("Run").apply {
-            font = FONT
-            foreground = TEXT_COLOR
-        }
         bar.add(runMenu)
 
-        closeButton = JLabel(" X ")
-        closeButton.foreground = TEXT_COLOR
-        closeButton.cursor = Cursor(Cursor.HAND_CURSOR)
-        closeButton.border = BorderFactory.createLineBorder(BACKGROUND_COLOR)
-        closeButton.addMouseListener(object : MouseListener {
-            override fun mouseEntered(e: MouseEvent) {}
-            override fun mouseExited(e: MouseEvent) {}
-            override fun mousePressed(e: MouseEvent) {}
-            override fun mouseReleased(e: MouseEvent) {}
-            override fun mouseClicked(e: MouseEvent) {
-                dispose()
-                exitProcess(0)
-            }
-        })
-        maxButton = JLabel(" \u1010 ")
-        maxButton.foreground = TEXT_COLOR
-        maxButton.cursor = Cursor(Cursor.HAND_CURSOR)
-        maxButton.border = BorderFactory.createLineBorder(BACKGROUND_COLOR)
-        maxButton.addMouseListener(object : MouseListener {
-            override fun mouseEntered(e: MouseEvent) {}
-            override fun mouseExited(e: MouseEvent) {}
-            override fun mousePressed(e: MouseEvent) {}
-            override fun mouseReleased(e: MouseEvent) {}
-            override fun mouseClicked(e: MouseEvent) {
-                toggleMax(false, MAX_X or MAX_Y)
-            }
-        })
-        minButton = JLabel(" _ ")
-        minButton.foreground = TEXT_COLOR
-        minButton.cursor = Cursor(Cursor.HAND_CURSOR)
-        minButton.border = BorderFactory.createLineBorder(BACKGROUND_COLOR)
-        minButton.addMouseListener(object : MouseListener {
-            override fun mouseEntered(e: MouseEvent) {}
-            override fun mouseExited(e: MouseEvent) {}
-            override fun mousePressed(e: MouseEvent) {}
-            override fun mouseReleased(e: MouseEvent) {}
-            override fun mouseClicked(e: MouseEvent) {
-                state = ICONIFIED
-            }
-        })
         bar.add(Box.createGlue())
         bar.add(minButton)
         bar.add(JLabel(" "))
         bar.add(maxButton)
         bar.add(JLabel(" "))
         bar.add(closeButton)
-        newItem = JMenuItem("New")
-        fileMenu.add(newItem) //File Items
-        newItem.addActionListener { newFile() }
-        newItem.accelerator = KeyStroke.getKeyStroke('N'.toInt(), Toolkit.getDefaultToolkit().menuShortcutKeyMask)
-        openItem = JMenuItem("Open")
+
+        fileMenu.add(newItem)
         fileMenu.add(openItem)
-        openItem.addActionListener { openFile() }
-        openItem.accelerator = KeyStroke.getKeyStroke('O'.toInt(), Toolkit.getDefaultToolkit().menuShortcutKeyMask)
-        saveItem = JMenuItem("Save")
         fileMenu.add(saveItem)
-        saveItem.addActionListener { saveFile() }
-        saveItem.accelerator = KeyStroke.getKeyStroke('S'.toInt(), Toolkit.getDefaultToolkit().menuShortcutKeyMask)
-        saveAsItem = JMenuItem("Save As")
         fileMenu.add(saveAsItem)
-        saveAsItem.addActionListener { saveAsFile() }
-        undoItem = JMenuItem("Undo")
-        editMenu.add(undoItem) //Edit Items
-        undoItem.addActionListener { if (undoManager.canUndo()) undoManager.undo() else Toolkit.getDefaultToolkit().beep() }
-        undoItem.accelerator = KeyStroke.getKeyStroke('Z'.toInt(), Toolkit.getDefaultToolkit().menuShortcutKeyMask)
-        redoItem = JMenuItem("Redo")
+        editMenu.add(undoItem)
         editMenu.add(redoItem)
-        redoItem.addActionListener { if (undoManager.canRedo()) undoManager.redo() else Toolkit.getDefaultToolkit().beep() }
-        redoItem.accelerator = KeyStroke.getKeyStroke('Y'.toInt(), Toolkit.getDefaultToolkit().menuShortcutKeyMask)
-        onTopItem = JCheckBoxMenuItem("Always On Top")
+
         viewMenu.add(onTopItem) //View Items
-        onTopItem.addActionListener { e: ActionEvent? -> toggleOnTop() }
-        runMenu.add(JMenuItem("Run").apply {
-            addActionListener {
-                val sb = StringBuilder()
+        runMenu.add(runItem)
 
-                val environment = Environment {
-                    sb.appendln(it)
-                }
-
-                try {
-                    val result = Parser(TokenReader(CharReader((this@GUI.textPane.text ?: "").toCharArray()))).parse()
-                    environment.evaluate(result)
-                } catch (e: CharReader.ReaderException) {
-                    sb.appendln(e.localizedMessage)
-                    println(e.localizedMessage)
-                } catch (e: Exception) {
-                    sb.appendln(e.localizedMessage)
-                    e.printStackTrace()
-                }
-
-                openDialogWindow(sb.toString(),"Run")
-            }
-        })
-        contentPane = object : JPanel() {
-            init {
-                layout = GridBagLayout()
-                border = null
-            }
-            override fun paintComponent(g: Graphics) {
-                super.paintComponent(g)
-                g.color = BACKGROUND_COLOR
-                g.drawRect(0,0,width+5, height+5)
-            }
+        val gbc = GridBagConstraints().apply {
+            gridx = 1
+            gridy = 1
+            fill = GridBagConstraints.BOTH
+            anchor = GridBagConstraints.CENTER
+            weightx = 1.0
+            weighty = 1.0
         }
-        setContentPane(contentPane)
-        contentPane.background = BACKGROUND_COLOR
-        val gbc = GridBagConstraints()
-        gbc.gridx = 1
-        gbc.gridy = 1
-        gbc.fill = GridBagConstraints.BOTH
-        gbc.anchor = GridBagConstraints.CENTER
-        gbc.weightx = 1.0
-        gbc.weighty = 1.0
-        val noWrap = JPanel(BorderLayout())
-        val scroll = JScrollPane(noWrap)
-        scroll.border = null
-        scroll.verticalScrollBar.unitIncrement = 10
+
+        val noWrap = JPanel(BorderLayout()).apply {
+            border = null
+        }
+        val scroll = JScrollPane(noWrap).apply {
+            border = null
+            verticalScrollBar.unitIncrement = 10
+        }
         noWrap.add(textPane, BorderLayout.CENTER)
         noWrap.add(lineNumberPane, BorderLayout.WEST)
         contentPane.add(scroll, gbc)
 
-        gbc.gridx = 0
-        gbc.gridy = 1
-        gbc.anchor = GridBagConstraints.LINE_START
-        gbc.weightx = -1.0
-        val dragLeft = JSeparator(1)
-        dragLeft.cursor = Cursor(Cursor.W_RESIZE_CURSOR)
-        dragLeft.addMouseMotionListener(object : MouseMotionListener {
-            override fun mouseMoved(e: MouseEvent) {}
-            override fun mouseDragged(e: MouseEvent) {
-                var size = width - e.x
-                if (size < 105) {
-                    size = 105
-                }
-                setSize(size, height)
-                setLocation(x + e.x, y)
-            }
-        })
-        contentPane.add(dragLeft, gbc)
-        gbc.gridx = 2
-        gbc.gridy = 1
-        gbc.anchor = GridBagConstraints.LINE_END
-        gbc.weightx = -1.0
-        val dragRight = JSeparator(1)
-        dragRight.cursor = Cursor(Cursor.E_RESIZE_CURSOR)
-        dragRight.addMouseMotionListener(object : MouseMotionListener {
-            override fun mouseMoved(e: MouseEvent) {}
-            override fun mouseDragged(e: MouseEvent) {
-                var size = width + e.x
-                if (size < 105) size = 105
-                setSize(size, height)
-            }
-        })
-        contentPane.add(dragRight, gbc)
-        gbc.gridx = 1
-        gbc.gridy = 2
-        gbc.anchor = GridBagConstraints.PAGE_END
-        gbc.weighty = -1.0
-        val dragDown = JSeparator(0)
-        dragDown.cursor = Cursor(Cursor.S_RESIZE_CURSOR)
-        dragDown.addMouseMotionListener(object : MouseMotionListener {
-            override fun mouseMoved(e: MouseEvent) {}
-            override fun mouseDragged(e: MouseEvent) {
-                var size = height + e.y
-                if (size < 75) size = 75
-                setSize(width, size)
-                if (e.yOnScreen >= Toolkit.getDefaultToolkit().screenSize.height - 1) toggleMax(false, MAX_Y)
-            }
-        })
-        contentPane.add(dragDown, gbc)
-        gbc.gridx = 2
-        gbc.gridy = 2
-        gbc.anchor = GridBagConstraints.LAST_LINE_END
-        gbc.weightx = -0.1
-        gbc.weighty = -0.1
-        val dragSE = JLabel("")
-        dragSE.cursor = Cursor(Cursor.SE_RESIZE_CURSOR)
-        dragSE.addMouseMotionListener(object : MouseMotionListener {
-            override fun mouseMoved(e: MouseEvent) {}
-            override fun mouseDragged(e: MouseEvent) {
-                var sizex = width + e.x
-                var sizey = height + e.y
-                if (sizex < 105) sizex = 105
-                if (sizey < 75) sizey = 75
-                setSize(sizex, sizey)
-            }
-        })
-        contentPane.add(dragSE, gbc)
-        gbc.gridx = 0
-        gbc.gridy = 2
-        gbc.anchor = GridBagConstraints.LAST_LINE_START
-        gbc.weightx = -0.1
-        gbc.weighty = -0.1
-        val dragSW = JLabel("")
-        dragSW.cursor = Cursor(Cursor.SW_RESIZE_CURSOR)
-        dragSW.addMouseMotionListener(object : MouseMotionListener {
-            override fun mouseMoved(e: MouseEvent) {}
-            override fun mouseDragged(e: MouseEvent) {
-                var sizex = width - e.x
-                var sizey = height + e.y
-                var movex = x + e.x
-                if (sizex < 105) {
-                    sizex = 105
-                    movex = x
-                }
-                if (sizey < 75) sizey = 75
-                setSize(sizex, sizey)
-                setLocation(movex, y)
-            }
-        })
-        contentPane.add(dragSW, gbc)
         addWindowListener(object : WindowListener {
             override fun windowClosed(e: WindowEvent) {}
             override fun windowClosing(e: WindowEvent) {}
@@ -434,6 +356,7 @@ object GUI : JFrame("Model Language IDE"), CoroutineScope by GlobalScope {
             maximised = false
         }
     }
+
     var filePath: String? = null
 
     fun newFile() {
@@ -500,8 +423,8 @@ object GUI : JFrame("Model Language IDE"), CoroutineScope by GlobalScope {
     }
 
     fun openDialogWindow(text: String, title: String = "") {
-        val dialog = JDialog(this@GUI,title).apply {
-            setSize(300,100)
+        val dialog = JDialog(this@GUI, title).apply {
+            setSize(300, 100)
             isVisible = true
             setLocationRelativeTo(null)
         }
