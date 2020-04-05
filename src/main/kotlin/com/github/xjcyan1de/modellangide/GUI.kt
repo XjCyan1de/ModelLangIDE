@@ -2,31 +2,29 @@ import com.github.xjcyan1de.modellangide.CharReader
 import com.github.xjcyan1de.modellangide.Environment
 import com.github.xjcyan1de.modellangide.Parser
 import com.github.xjcyan1de.modellangide.TokenReader
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import java.awt.*
 import java.awt.event.*
-import java.awt.image.BufferedImage
-import java.io.BufferedWriter
 import java.io.File
-import java.io.FileWriter
 import java.io.IOException
 import javax.swing.*
 import javax.swing.undo.UndoManager
-import kotlin.concurrent.thread
 import kotlin.system.exitProcess
 
-var MAX_X = 2
-var MAX_Y = 1
-private val FONT = Font("JetBrains Mono", 0, 14)
+const val MAX_X = 2
+const val MAX_Y = 1
+private val FONT = Font("JetBrains Mono", 0, 14) // Шрифты не заружаются :c
 
 val BACKGROUND_COLOR = Color(0x2b2b2b)
 val BACKGROUND_PRIMARY_COLOR = Color(0x313335)
 val TEXT_COLOR = Color(0xbbbbbb)
 
-object Scratch : JFrame("Model Language IDE") {
-    private val contentPane: JPanel
-    private val bar: JMenuBar = object : JMenuBar() {
+object GUI : JFrame("Model Language IDE"), CoroutineScope by GlobalScope {
+    val contentPane: JPanel
+    val bar: JMenuBar = object : JMenuBar() {
         init {
-//            border = BorderFactory.createTitledBorder(null, title, 2, 3, FONT, TEXT_COLOR)
             border = null
 
             addMouseListener(object : MouseListener {
@@ -42,7 +40,7 @@ object Scratch : JFrame("Model Language IDE") {
 
                 override fun mouseReleased(e: MouseEvent) {
                     if (e.yOnScreen <= 3) toggleMax(false, MAX_X or MAX_Y)
-                    if (this@Scratch.y < 0) setLocation(this@Scratch.x, 0)
+                    if (this@GUI.y < 0) setLocation(this@GUI.x, 0)
                 }
             })
         }
@@ -50,34 +48,36 @@ object Scratch : JFrame("Model Language IDE") {
         override fun paintComponent(g: Graphics) {
             super.paintComponent(g)
             g.color = BACKGROUND_PRIMARY_COLOR
-            g.fillRect(0-10, 0-10, width+10, height+10)
+            g.fillRect(0, 0, width, height)
         }
     }
-    private val file: JMenu
-    private val edit: JMenu
-    private val view: JMenu
-    private val run: JMenu
-    private val newItem: JMenuItem
-    private val openItem: JMenuItem
-    private val Save: JMenuItem
-    private val saveAsItem: JMenuItem
-    private val undoItem: JMenuItem
-    private val Redo: JMenuItem
-    private val onTop: JCheckBoxMenuItem
-    private val XButton: JLabel
-    private val minButton: JLabel
-    private val MaxButton: JLabel
-    private val undo = UndoManager()
-    private val text: JTextPane = JTextPane().apply {
+    val fileMenu: JMenu
+    val editMenu: JMenu
+    val viewMenu: JMenu
+    val runMenu: JMenu
+    val newItem: JMenuItem
+    val openItem: JMenuItem
+    val saveItem: JMenuItem
+    val saveAsItem: JMenuItem
+    val undoItem: JMenuItem
+    val redoItem: JMenuItem
+    val onTopItem: JCheckBoxMenuItem
+    val closeButton: JLabel
+    val minButton: JLabel
+    val maxButton: JLabel
+    val undoManager = UndoManager()
+    val textPane: JTextPane = JTextPane().apply {
         border = null
         font = FONT
         background = BACKGROUND_COLOR
         foreground = TEXT_COLOR
         caretColor = TEXT_COLOR
-        document.addUndoableEditListener(undo)
+        document.addUndoableEditListener(undoManager)
     }
 
-    private var lineNumber: JTextPane = object : JTextPane() {
+    val lineNumberPane: JTextPane = object : JTextPane() {
+        private var lastLines = 0
+
         init {
             background = BACKGROUND_PRIMARY_COLOR
             foreground = TEXT_COLOR
@@ -85,28 +85,31 @@ object Scratch : JFrame("Model Language IDE") {
             isEditable = false
             font = FONT
             text = ""
-            thread {
-                var lastLines = 0
+            launch {
                 while (true) {
-                    val lines = this@Scratch.text?.text?.split("\n") ?: emptyList()
-                    if (lastLines != lines.size) {
-                        val nums = if (lastLines < lines.size) {
-                            StringBuilder(this.text).apply {
-                                for (i in lastLines + 1..lines.size) {
-                                    appendln(i)
-                                }
-                            }
-                        } else {
-                            StringBuilder().apply {
-                                for (i in 1..lines.size) {
-                                    appendln(i)
-                                }
-                            }
+                    updateLineNumbers()
+                }
+            }
+        }
+
+        fun updateLineNumbers() {
+            val lines = this@GUI.textPane.text?.split("\n") ?: emptyList()
+            if (lastLines != lines.size) {
+                val nums = if (lastLines < lines.size) {
+                    StringBuilder(this.text).apply {
+                        for (i in lastLines + 1..lines.size) {
+                            appendln(i)
                         }
-                        text = nums.toString()
-                        lastLines = lines.size
+                    }
+                } else {
+                    StringBuilder().apply {
+                        for (i in 1..lines.size) {
+                            appendln(i)
+                        }
                     }
                 }
+                text = nums.toString()
+                lastLines = lines.size
             }
         }
 
@@ -128,137 +131,10 @@ object Scratch : JFrame("Model Language IDE") {
     private var origX = 0
     private var origY = 0
 
-    var screenSize = Toolkit.getDefaultToolkit().screenSize
-    var width = screenSize.getWidth()
-    var height = screenSize.getHeight()
-    private var icon = BufferedImage(256, 256, BufferedImage.TYPE_INT_ARGB)
-
-
-    fun setTitleAll(title: String) {
-        this.title = title
-//        bar.border = BorderFactory.createTitledBorder(null, title, 2, 3, font, TEXT_COLOR)
-        setTitle(title)
-    }
-
-    fun toggleOnTop() {
-        OnTop = !OnTop
-        isAlwaysOnTop = OnTop
-    }
-
-    fun toggleMax(drag: Boolean, direction: Int) {
-        if (!maximised) {
-            origW = getWidth()
-            origH = getHeight()
-            origX = x
-            origY = y
-            when (direction) {
-                2 -> extendedState = MAXIMIZED_HORIZ
-                1 -> extendedState = MAXIMIZED_VERT
-                3 -> {
-                    val usableBounds = GraphicsEnvironment.getLocalGraphicsEnvironment().maximumWindowBounds
-                    maximizedBounds = usableBounds
-                    extendedState = MAXIMIZED_BOTH
-                }
-            }
-            state = NORMAL
-            maximised = true
-        } else if (!drag) {
-            state = NORMAL
-            setSize(origW, origH)
-            setLocation(origX, if (origY < 0) 0 else origY)
-            maximised = false
-        } else {
-            state = NORMAL
-            setSize(origW, origH)
-            setLocation(xOffScreen - origW / 2, yOffScreen)
-            xoff = xOffScreen - xoff + origW / 2
-            yoff = yOffScreen
-            maximised = false
-        }
-    }
-
-    //IO
-    var changed = false
-    var filePath: String? = null
-    fun New() {
-        filePath = null
-        text.text = ""
-        setTitleAll("Model Language IDE - New File")
-    }
-
-    fun Open() {
-        if (OnTop) isAlwaysOnTop = false
-        val dialog = FileDialog(this, "Open", FileDialog.LOAD)
-        dialog.isVisible = true
-        if (dialog.file != null) {
-            filePath = dialog.directory + dialog.file
-            text.text = File(filePath).readLines().joinToString("\n")
-            setTitleAll("Model Language IDE - " + dialog.file)
-        }
-        if (OnTop) isAlwaysOnTop = true
-    }
-
-    fun Save() {
-        if (filePath == null) {
-            if (OnTop) isAlwaysOnTop = false
-            val dialog = FileDialog(this, "Save", FileDialog.SAVE)
-            dialog.isVisible = true
-            if (dialog.file != null) {
-                filePath = dialog.directory + dialog.file
-                val fw: FileWriter
-                try {
-                    val file = File(filePath)
-                    file.createNewFile()
-                    fw = FileWriter(filePath)
-                    val bw = BufferedWriter(fw)
-                    bw.write(text.text)
-                    bw.close()
-                } catch (e: IOException) {
-                    e.printStackTrace()
-                }
-                setTitleAll("Model Language IDE - " + dialog.file)
-            }
-            if (OnTop) isAlwaysOnTop = true
-        } else {
-            val fw: FileWriter
-            try {
-                fw = FileWriter(filePath)
-                val bw = BufferedWriter(fw)
-                bw.write(text.text)
-                bw.close()
-            } catch (e: IOException) {
-                e.printStackTrace()
-            }
-        }
-    }
-
-    fun SaveAs() {
-        if (OnTop) isAlwaysOnTop = false
-        val dialog = FileDialog(this, "Save as", FileDialog.SAVE)
-        dialog.isVisible = true
-        if (dialog.file != null) {
-            filePath = dialog.directory + dialog.file
-            val fw: FileWriter
-            try {
-                val file = File(filePath)
-                if (file.exists()) file.createNewFile()
-                fw = FileWriter(filePath)
-                val bw = BufferedWriter(fw)
-                bw.write(text.text)
-                bw.close()
-            } catch (e: IOException) {
-                e.printStackTrace()
-            }
-            setTitleAll("Model Language IDE - " + dialog.file)
-        }
-        if (OnTop) isAlwaysOnTop = true
-    }
-
     init {
         UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName())
 
         defaultCloseOperation = EXIT_ON_CLOSE
-        title = title
         isUndecorated = true
 
         bar.addMouseMotionListener(object : MouseMotionListener {
@@ -269,33 +145,32 @@ object Scratch : JFrame("Model Language IDE") {
                 } else toggleMax(true, MAX_X or MAX_Y)
             }
         })
-        bar.background = BACKGROUND_PRIMARY_COLOR
         jMenuBar = bar
 
-        file = JMenu("File")
-        file.font = FONT
-        file.foreground = TEXT_COLOR
-        bar.add(file)
-        edit = JMenu("Edit")
-        edit.font = FONT
-        edit.foreground = TEXT_COLOR
-        bar.add(edit)
-        view = JMenu("View").apply {
+        fileMenu = JMenu("File")
+        fileMenu.font = FONT
+        fileMenu.foreground = TEXT_COLOR
+        bar.add(fileMenu)
+        editMenu = JMenu("Edit")
+        editMenu.font = FONT
+        editMenu.foreground = TEXT_COLOR
+        bar.add(editMenu)
+        viewMenu = JMenu("View").apply {
             font = FONT
             foreground = TEXT_COLOR
         }
-        bar.add(view)
-        run = JMenu("Run").apply {
+        bar.add(viewMenu)
+        runMenu = JMenu("Run").apply {
             font = FONT
             foreground = TEXT_COLOR
         }
-        bar.add(run)
+        bar.add(runMenu)
 
-        XButton = JLabel(" X ")
-        XButton.foreground = TEXT_COLOR
-        XButton.cursor = Cursor(Cursor.HAND_CURSOR)
-        XButton.border = BorderFactory.createLineBorder(BACKGROUND_COLOR)
-        XButton.addMouseListener(object : MouseListener {
+        closeButton = JLabel(" X ")
+        closeButton.foreground = TEXT_COLOR
+        closeButton.cursor = Cursor(Cursor.HAND_CURSOR)
+        closeButton.border = BorderFactory.createLineBorder(BACKGROUND_COLOR)
+        closeButton.addMouseListener(object : MouseListener {
             override fun mouseEntered(e: MouseEvent) {}
             override fun mouseExited(e: MouseEvent) {}
             override fun mousePressed(e: MouseEvent) {}
@@ -305,11 +180,11 @@ object Scratch : JFrame("Model Language IDE") {
                 exitProcess(0)
             }
         })
-        MaxButton = JLabel(" \u1010 ")
-        MaxButton.foreground = TEXT_COLOR
-        MaxButton.cursor = Cursor(Cursor.HAND_CURSOR)
-        MaxButton.border = BorderFactory.createLineBorder(BACKGROUND_COLOR)
-        MaxButton.addMouseListener(object : MouseListener {
+        maxButton = JLabel(" \u1010 ")
+        maxButton.foreground = TEXT_COLOR
+        maxButton.cursor = Cursor(Cursor.HAND_CURSOR)
+        maxButton.border = BorderFactory.createLineBorder(BACKGROUND_COLOR)
+        maxButton.addMouseListener(object : MouseListener {
             override fun mouseEntered(e: MouseEvent) {}
             override fun mouseExited(e: MouseEvent) {}
             override fun mousePressed(e: MouseEvent) {}
@@ -334,62 +209,55 @@ object Scratch : JFrame("Model Language IDE") {
         bar.add(Box.createGlue())
         bar.add(minButton)
         bar.add(JLabel(" "))
-        bar.add(MaxButton)
+        bar.add(maxButton)
         bar.add(JLabel(" "))
-        bar.add(XButton)
+        bar.add(closeButton)
         newItem = JMenuItem("New")
-        file.add(newItem) //File Items
-        newItem.addActionListener { New() }
+        fileMenu.add(newItem) //File Items
+        newItem.addActionListener { newFile() }
         newItem.accelerator = KeyStroke.getKeyStroke('N'.toInt(), Toolkit.getDefaultToolkit().menuShortcutKeyMask)
         openItem = JMenuItem("Open")
-        file.add(openItem)
-        openItem.addActionListener { Open() }
+        fileMenu.add(openItem)
+        openItem.addActionListener { openFile() }
         openItem.accelerator = KeyStroke.getKeyStroke('O'.toInt(), Toolkit.getDefaultToolkit().menuShortcutKeyMask)
-        Save = JMenuItem("Save")
-        file.add(Save)
-        Save.addActionListener { Save() }
-        Save.accelerator = KeyStroke.getKeyStroke('S'.toInt(), Toolkit.getDefaultToolkit().menuShortcutKeyMask)
+        saveItem = JMenuItem("Save")
+        fileMenu.add(saveItem)
+        saveItem.addActionListener { saveFile() }
+        saveItem.accelerator = KeyStroke.getKeyStroke('S'.toInt(), Toolkit.getDefaultToolkit().menuShortcutKeyMask)
         saveAsItem = JMenuItem("Save As")
-        file.add(saveAsItem)
-        saveAsItem.addActionListener { SaveAs() }
+        fileMenu.add(saveAsItem)
+        saveAsItem.addActionListener { saveAsFile() }
         undoItem = JMenuItem("Undo")
-        edit.add(undoItem) //Edit Items
-        undoItem.addActionListener { if (undo.canUndo()) undo.undo() else Toolkit.getDefaultToolkit().beep() }
+        editMenu.add(undoItem) //Edit Items
+        undoItem.addActionListener { if (undoManager.canUndo()) undoManager.undo() else Toolkit.getDefaultToolkit().beep() }
         undoItem.accelerator = KeyStroke.getKeyStroke('Z'.toInt(), Toolkit.getDefaultToolkit().menuShortcutKeyMask)
-        Redo = JMenuItem("Redo")
-        edit.add(Redo)
-        Redo.addActionListener { if (undo.canRedo()) undo.redo() else Toolkit.getDefaultToolkit().beep() }
-        Redo.accelerator = KeyStroke.getKeyStroke('Y'.toInt(), Toolkit.getDefaultToolkit().menuShortcutKeyMask)
-        onTop = JCheckBoxMenuItem("Always On Top")
-        view.add(onTop) //View Items
-        onTop.addActionListener { e: ActionEvent? -> toggleOnTop() }
-        run.add(JMenuItem("Run").apply {
+        redoItem = JMenuItem("Redo")
+        editMenu.add(redoItem)
+        redoItem.addActionListener { if (undoManager.canRedo()) undoManager.redo() else Toolkit.getDefaultToolkit().beep() }
+        redoItem.accelerator = KeyStroke.getKeyStroke('Y'.toInt(), Toolkit.getDefaultToolkit().menuShortcutKeyMask)
+        onTopItem = JCheckBoxMenuItem("Always On Top")
+        viewMenu.add(onTopItem) //View Items
+        onTopItem.addActionListener { e: ActionEvent? -> toggleOnTop() }
+        runMenu.add(JMenuItem("Run").apply {
             addActionListener {
+                val sb = StringBuilder()
 
-
-                val dialog = JDialog(this@Scratch,"Run").apply {
-                    setSize(300,100)
-                    isVisible = true
-                    setLocationRelativeTo(null)
+                val environment = Environment {
+                    sb.appendln(it)
                 }
 
-                val text = JTextArea()
-                text.isEditable = false
-                text.font = FONT
-                text.isVisible = true
-
-                dialog.add(text)
-
-                val environment = Environment() {
-                    text.text = text.text + it + "\n"
-                }
                 try {
-                    val result = Parser(TokenReader(CharReader((this@Scratch.text.text ?: "").toCharArray()))).parse()
+                    val result = Parser(TokenReader(CharReader((this@GUI.textPane.text ?: "").toCharArray()))).parse()
                     environment.evaluate(result)
+                } catch (e: CharReader.ReaderException) {
+                    sb.appendln(e.localizedMessage)
+                    println(e.localizedMessage)
                 } catch (e: Exception) {
-                    text.text = text.text + e.localizedMessage
+                    sb.appendln(e.localizedMessage)
                     e.printStackTrace()
                 }
+
+                openDialogWindow(sb.toString(),"Run")
             }
         })
         contentPane = object : JPanel() {
@@ -416,8 +284,8 @@ object Scratch : JFrame("Model Language IDE") {
         val scroll = JScrollPane(noWrap)
         scroll.border = null
         scroll.verticalScrollBar.unitIncrement = 10
-        noWrap.add(text, BorderLayout.CENTER)
-        noWrap.add(lineNumber, BorderLayout.WEST)
+        noWrap.add(textPane, BorderLayout.CENTER)
+        noWrap.add(lineNumberPane, BorderLayout.WEST)
         contentPane.add(scroll, gbc)
 
         gbc.gridx = 0
@@ -429,12 +297,11 @@ object Scratch : JFrame("Model Language IDE") {
         dragLeft.addMouseMotionListener(object : MouseMotionListener {
             override fun mouseMoved(e: MouseEvent) {}
             override fun mouseDragged(e: MouseEvent) {
-                var size = getWidth() - e.x
+                var size = width - e.x
                 if (size < 105) {
                     size = 105
-                    return
                 }
-                setSize(size, getHeight())
+                setSize(size, height)
                 setLocation(x + e.x, y)
             }
         })
@@ -448,9 +315,9 @@ object Scratch : JFrame("Model Language IDE") {
         dragRight.addMouseMotionListener(object : MouseMotionListener {
             override fun mouseMoved(e: MouseEvent) {}
             override fun mouseDragged(e: MouseEvent) {
-                var size = getWidth() + e.x
+                var size = width + e.x
                 if (size < 105) size = 105
-                setSize(size, getHeight())
+                setSize(size, height)
             }
         })
         contentPane.add(dragRight, gbc)
@@ -463,9 +330,9 @@ object Scratch : JFrame("Model Language IDE") {
         dragDown.addMouseMotionListener(object : MouseMotionListener {
             override fun mouseMoved(e: MouseEvent) {}
             override fun mouseDragged(e: MouseEvent) {
-                var size = getHeight() + e.y
+                var size = height + e.y
                 if (size < 75) size = 75
-                setSize(getWidth(), size)
+                setSize(width, size)
                 if (e.yOnScreen >= Toolkit.getDefaultToolkit().screenSize.height - 1) toggleMax(false, MAX_Y)
             }
         })
@@ -480,8 +347,8 @@ object Scratch : JFrame("Model Language IDE") {
         dragSE.addMouseMotionListener(object : MouseMotionListener {
             override fun mouseMoved(e: MouseEvent) {}
             override fun mouseDragged(e: MouseEvent) {
-                var sizex = getWidth() + e.x
-                var sizey = getHeight() + e.y
+                var sizex = width + e.x
+                var sizey = height + e.y
                 if (sizex < 105) sizex = 105
                 if (sizey < 75) sizey = 75
                 setSize(sizex, sizey)
@@ -498,8 +365,8 @@ object Scratch : JFrame("Model Language IDE") {
         dragSW.addMouseMotionListener(object : MouseMotionListener {
             override fun mouseMoved(e: MouseEvent) {}
             override fun mouseDragged(e: MouseEvent) {
-                var sizex = getWidth() - e.x
-                var sizey = getHeight() + e.y
+                var sizex = width - e.x
+                var sizey = height + e.y
                 var movex = x + e.x
                 if (sizex < 105) {
                     sizex = 105
@@ -529,5 +396,125 @@ object Scratch : JFrame("Model Language IDE") {
         setSize(500, 350)
         setLocationRelativeTo(null)
         isVisible = true
+    }
+
+    fun toggleOnTop() {
+        OnTop = !OnTop
+        isAlwaysOnTop = OnTop
+    }
+
+    fun toggleMax(drag: Boolean, direction: Int) {
+        if (!maximised) {
+            origW = width
+            origH = height
+            origX = x
+            origY = y
+            when (direction) {
+                2 -> extendedState = MAXIMIZED_HORIZ
+                1 -> extendedState = MAXIMIZED_VERT
+                3 -> {
+                    val usableBounds = GraphicsEnvironment.getLocalGraphicsEnvironment().maximumWindowBounds
+                    maximizedBounds = usableBounds
+                    extendedState = MAXIMIZED_BOTH
+                }
+            }
+            state = NORMAL
+            maximised = true
+        } else if (!drag) {
+            state = NORMAL
+            setSize(origW, origH)
+            setLocation(origX, if (origY < 0) 0 else origY)
+            maximised = false
+        } else {
+            state = NORMAL
+            setSize(origW, origH)
+            setLocation(xOffScreen - origW / 2, yOffScreen)
+            xoff = xOffScreen - xoff + origW / 2
+            yoff = yOffScreen
+            maximised = false
+        }
+    }
+    var filePath: String? = null
+
+    fun newFile() {
+        filePath = null
+        textPane.text = ""
+    }
+
+    fun openFile() {
+        if (OnTop) isAlwaysOnTop = false
+        val dialog = FileDialog(this, "Open", FileDialog.LOAD)
+        dialog.isVisible = true
+        if (dialog.file != null) {
+            filePath = dialog.directory + dialog.file
+            textPane.text = File(filePath).readLines().joinToString("\n")
+        }
+        if (OnTop) isAlwaysOnTop = true
+    }
+
+    fun saveFile() {
+        if (filePath == null) {
+            if (OnTop) isAlwaysOnTop = false
+            val dialog = FileDialog(this, "Save", FileDialog.SAVE)
+            dialog.isVisible = true
+            if (dialog.file != null) {
+                filePath = dialog.directory + dialog.file
+                try {
+                    val file = File(filePath)
+                    file.createNewFile()
+                    file.bufferedWriter().use {
+                        it.write(textPane.text)
+                    }
+                } catch (e: IOException) {
+                    e.printStackTrace()
+                }
+            }
+            if (OnTop) isAlwaysOnTop = true
+        } else {
+            try {
+                File(filePath).bufferedWriter().use {
+                    it.write(textPane.text)
+                }
+            } catch (e: IOException) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun saveAsFile() {
+        if (OnTop) isAlwaysOnTop = false
+        val dialog = FileDialog(this, "Save as", FileDialog.SAVE)
+        dialog.isVisible = true
+        if (dialog.file != null) {
+            filePath = dialog.directory + dialog.file
+            try {
+                val file = File(filePath)
+                file.bufferedWriter().use {
+                    it.write(textPane.text)
+                }
+            } catch (e: IOException) {
+                e.printStackTrace()
+            }
+        }
+        if (OnTop) isAlwaysOnTop = true
+    }
+
+    fun openDialogWindow(text: String, title: String = "") {
+        val dialog = JDialog(this@GUI,title).apply {
+            setSize(300,100)
+            isVisible = true
+            setLocationRelativeTo(null)
+        }
+
+        val textArea = JTextArea()
+        textArea.isEditable = false
+        textArea.font = FONT
+        textArea.isVisible = true
+        textArea.text = text
+        textArea.foreground = TEXT_COLOR
+        textArea.background = BACKGROUND_COLOR
+
+        dialog.add(textArea)
+        dialog.pack()
     }
 }

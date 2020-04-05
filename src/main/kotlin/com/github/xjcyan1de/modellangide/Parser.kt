@@ -15,6 +15,14 @@ class Parser(val reader: TokenReader) {
         return expression != null && expression::class == tokenClass && if (value != null) expression.value == value else true
     }
 
+    inline fun <reified T : Token> expecting(): Nothing = expecting(T::class)
+    fun <T : Token> expecting(tokenClass: KClass<T>): Nothing = reader.error("Expecting ${tokenClass.simpleName}")
+
+    inline fun <reified T : Token> checkToken() = checkToken(T::class)
+    fun <T : Token> checkToken(tokenClass: KClass<T>) {
+        if (!isToken(tokenClass)) expecting(tokenClass)
+    }
+
     fun parse(): StatementList {
         return delemited(null, null)
     }
@@ -50,11 +58,10 @@ class Parser(val reader: TokenReader) {
 
     fun parseAssignStatement(): AssignStatement {
         skipToken<Operator>("@")
-        isToken<Identifier>()
+        checkToken<Identifier>()
         val identifier = reader.next() as Identifier
         skipToken<Operator>("=")
-        isToken<SimpleExpression>()
-        val expression = reader.next() as SimpleExpression
+        val expression = reader.next() ?: expecting<SimpleExpression>()
         return AssignStatement(identifier, expression)
     }
 
@@ -103,7 +110,7 @@ class Parser(val reader: TokenReader) {
 
         val then = if (isToken<Punctuation>("{")) {
             parseBlock()
-        } else StatementList().also { it.add(parseStatement()) }
+        } else null
 
         val orElse = if (isToken<KeyWord>("else")) {
             skipToken<KeyWord>("else")

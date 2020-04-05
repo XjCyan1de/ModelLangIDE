@@ -1,6 +1,6 @@
 package com.github.xjcyan1de.modellangide
 
-import Scratch
+import GUI
 
 interface Token {
     val value: Any? get() = null
@@ -32,7 +32,7 @@ class StatementList(val list: MutableList<Statement> = ArrayList()) : Token, Mut
 
 data class ExpressionStatement(val expression: Expression) : Statement
 data class AssignStatement(val identifier: Identifier, val expression: Expression) : Statement
-data class IfStatement(val condition: Expression, val then: StatementList, val orElse: StatementList? = null) : Statement
+data class IfStatement(val condition: Expression, val then: StatementList? = null, val orElse: StatementList? = null) : Statement
 
 
 data class KeyWord(override val value: String) : SimpleExpression
@@ -55,5 +55,7 @@ fun Char.isWhiteSpace() = whiteSpaceChars.contains(this)
 fun String.isKeyWord() = keyWords.contains(this)
 
 fun main() {
-    Scratch
+    GUI
+    TextListener
 }
+
