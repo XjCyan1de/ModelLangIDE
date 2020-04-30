@@ -108,7 +108,7 @@ class Parser(private val reader: TokenReader) {
 
         val then = if (isToken<Punctuation>("{")) {
             parseBlock()
-        } else null
+        } else StatementList()
 
         val orElse = if (isToken<KeyWord>("else")) {
             skipToken<KeyWord>("else")

@@ -27,7 +27,7 @@ class Environment(val output: (Int)->Unit) {
         is IfStatement -> {
             val result = evaluate(statement.condition)
             when {
-                result == 1 && statement.then != null -> evaluate(statement.then)
+                result == 1 -> evaluate(statement.then)
                 result == 0 && statement.orElse != null -> evaluate(statement.orElse)
                 else -> Unit
             }

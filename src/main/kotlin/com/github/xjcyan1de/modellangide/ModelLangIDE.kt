@@ -19,13 +19,13 @@ data class IntegerExpression(override val value: String) : SimpleExpression<Stri
 }
 
 interface Statement
-class StatementList(private val list: MutableList<Statement> = ArrayList()) : Token<MutableList<Statement>>, MutableList<Statement> by list {
+data class StatementList(private val list: MutableList<Statement> = ArrayList()) : Token<MutableList<Statement>>, MutableList<Statement> by list {
     override fun toString(): String = list.toString()
 }
 
 data class ExpressionStatement(val expression: Expression) : Statement
 data class AssignStatement(val identifier: Identifier, val expression: Expression) : Statement
-data class IfStatement(val condition: Expression, val then: StatementList? = null, val orElse: StatementList? = null) : Statement
+data class IfStatement(val condition: Expression, val then: StatementList = StatementList(), val orElse: StatementList? = null) : Statement
 
 
 data class KeyWord(override val value: String) : SimpleExpression<String>

@@ -26,7 +26,7 @@ object TextListener : CoroutineScope by GlobalScope {
         try {
             val parser = Parser(TokenReader(CharReader(text.toCharArray())))
             val parseResult = parser.parse()
-            checkStatements(parseResult)
+            checkStatements(lastParseResult, parseResult)
             lastParseResult = parseResult
         } catch (e: CharReader.ReaderException) {
             println(e.localizedMessage)
@@ -35,23 +35,35 @@ object TextListener : CoroutineScope by GlobalScope {
         }
     }
 
-    private fun checkStatements(statementList: StatementList) {
-        statementList.forEachIndexed { index, statement ->
-            if (statement is IfStatement && statement.then != null && index < lastParseResult.size) {
-                val oldIfStatement = lastParseResult[index] as? IfStatement
-                if (oldIfStatement != null && oldIfStatement.then == null) {
-                    var checkIf = true
-                    statement.then.forEachIndexed { ifElementIndex, ifElementStatement ->
-                        if (lastParseResult[index + 1 + ifElementIndex] != ifElementStatement) {
-                            checkIf = false
-                            return
-                        }
+    private fun checkStatements(lastList: List<Statement>, currentList: List<Statement>) {
+        val lastIterator = lastList.listIterator()
+        val currentIterator = currentList.listIterator()
+
+        while (lastIterator.hasNext() && currentIterator.hasNext()) {
+            val lastStatement = lastIterator.next()
+            val currentStatement = currentIterator.next()
+
+            if (lastStatement == currentStatement) continue
+
+            if (currentStatement is IfStatement) {
+                if (lastStatement is IfStatement && lastStatement.then.isEmpty()) {
+                    if (compareStatements(currentStatement.then.listIterator(), lastList.listIterator(lastIterator.nextIndex()))) {
+                        showFramingIfNotification()
                     }
-                    if (checkIf) {
-                        GUI.openDialogWindow("Добавлен обрамляющий IF")
-                    }
+                } else if (compareStatements(currentStatement.then.listIterator(), lastList.listIterator(lastIterator.previousIndex()))) {
+                    showFramingIfNotification()
                 }
             }
         }
     }
+
+    private fun compareStatements(first: ListIterator<Statement>, second: ListIterator<Statement>): Boolean {
+        if (first.hasNext() != second.hasNext()) return false
+        while (first.hasNext() && second.hasNext()) {
+            if (first.next() != second.next()) return false
+        }
+        return true
+    }
+
+    private fun showFramingIfNotification() = GUI.openDialogWindow("Добавлен обрамляющий IF")
 }
