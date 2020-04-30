@@ -1,7 +1,7 @@
 package com.github.xjcyan1de.modellangide
 
 class Environment(val output: (Int)->Unit) {
-    val vars = HashMap<String,Int>()
+    private val vars = HashMap<String, Int>()
 
     fun get(name: String) = vars[name] ?: error("Undefined variable: $name")
 
@@ -11,7 +11,7 @@ class Environment(val output: (Int)->Unit) {
         } else error("Undefined variable: $name")
     }
 
-    fun define(name: String, value: Int) {
+    private fun define(name: String, value: Int) {
         vars[name] = value
     }
 
@@ -21,7 +21,7 @@ class Environment(val output: (Int)->Unit) {
         }
     }
 
-    fun evaluate(statement: Statement): Unit = when(statement) {
+    private fun evaluate(statement: Statement): Unit = when (statement) {
         is AssignStatement -> define(statement.identifier.value, evaluate(statement.expression))
         is ExpressionStatement -> output(evaluate(statement.expression))
         is IfStatement -> {
@@ -35,17 +35,17 @@ class Environment(val output: (Int)->Unit) {
         else -> error("Can't evaluate statement: $statement")
     }
 
-    fun evaluate(expression: Expression): Int = when(expression) {
+    private fun evaluate(expression: Expression): Int = when (expression) {
         is IntegerExpression -> expression.value.toInt()
         is Identifier -> get(expression.value)
         is BinaryExpression -> {
             val left = evaluate(expression.left)
             val right = evaluate(expression.right)
             val operator = expression.operator
-            when(operator.value) {
-                "+" -> left+right
-                "-" -> left-right
-                "*" -> left*right
+            when (operator.value) {
+                "+" -> left + right
+                "-" -> left - right
+                "*" -> left * right
                 "/" -> {
                     if (right == 0) error("Divide by zero")
                     left / right

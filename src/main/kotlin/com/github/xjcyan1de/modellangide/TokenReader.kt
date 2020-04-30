@@ -1,10 +1,10 @@
 package com.github.xjcyan1de.modellangide
 
-class TokenReader(val charReader: CharReader) {
-    var current: SimpleExpression<*>? = null
+class TokenReader(private val charReader: CharReader) {
+    private var current: SimpleExpression<*>? = null
     var next: SimpleExpression<*>? = null
 
-    fun readWhile(predicate: (Char) -> Boolean): String {
+    private fun readWhile(predicate: (Char) -> Boolean): String {
         val sb = StringBuilder()
         while (charReader.hasNext() && predicate(charReader.peek())) {
             sb.append(charReader.next())
@@ -12,41 +12,12 @@ class TokenReader(val charReader: CharReader) {
         return sb.toString()
     }
 
-    fun readInt(): IntegerExpression {
+    private fun readInt(): IntegerExpression {
         val string = readWhile { it.isDigit() }
         return IntegerExpression(string)
     }
 
-    fun readId(): Identifier {
-        val id = readWhile { it.isLetter() }
-        return Identifier(id)
-    }
-
-    fun readEscaped(endChar: Char): String {
-        var escaped = false
-        val sb = StringBuilder()
-        while (charReader.hasNext()) {
-            val ch = charReader.next()
-            if (escaped) {
-                sb.append(ch)
-                escaped = false
-            } else if (ch == '\\') {
-                escaped = true
-            } else if (ch == endChar) {
-                break
-            } else {
-                sb.append(ch)
-            }
-        }
-        return sb.toString()
-    }
-
-    fun skipComment() {
-        readWhile { it != '\n' }
-        charReader.next()
-    }
-
-    fun readNext(): SimpleExpression<*>? {
+    private fun readNext(): SimpleExpression<*>? {
         readWhile { it.isWhiteSpace() }
         if (!charReader.hasNext()) return null
         val ch = charReader.peek()

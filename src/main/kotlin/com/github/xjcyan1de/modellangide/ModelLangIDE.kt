@@ -19,7 +19,7 @@ data class IntegerExpression(override val value: String) : SimpleExpression<Stri
 }
 
 interface Statement
-class StatementList(val list: MutableList<Statement> = ArrayList()) : Token<MutableList<Statement>>, MutableList<Statement> by list {
+class StatementList(private val list: MutableList<Statement> = ArrayList()) : Token<MutableList<Statement>>, MutableList<Statement> by list {
     override fun toString(): String = list.toString()
 }
 

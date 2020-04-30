@@ -25,8 +25,8 @@ object GUI : JFrame("Model Language IDE"), CoroutineScope by GlobalScope {
     }
 
     private var OnTop = false
-    private var xoff = 0
-    private var yoff = 0
+    private var xOffset = 0
+    private var yOffset = 0
     private var xOffScreen = 0
     private var yOffScreen = 0
     private var maximised = false
@@ -35,9 +35,9 @@ object GUI : JFrame("Model Language IDE"), CoroutineScope by GlobalScope {
     private var origX = 0
     private var origY = 0
 
-    val undoManager = UndoManager()
+    private val undoManager = UndoManager()
 
-    val contentPane = object : JPanel() {
+    private val contentPane = object : JPanel() {
         init {
             layout = GridBagLayout()
             border = null
@@ -51,7 +51,7 @@ object GUI : JFrame("Model Language IDE"), CoroutineScope by GlobalScope {
             g.drawRect(0, 0, width, height)
         }
     }
-    val bar: JMenuBar = object : JMenuBar() {
+    private val bar: JMenuBar = object : JMenuBar() {
         init {
             border = BorderFactory.createLineBorder(BACKGROUND_PRIMARY_COLOR)
 
@@ -60,8 +60,8 @@ object GUI : JFrame("Model Language IDE"), CoroutineScope by GlobalScope {
                 override fun mouseEntered(e: MouseEvent) {}
                 override fun mouseExited(e: MouseEvent) {}
                 override fun mousePressed(e: MouseEvent) {
-                    xoff = e.x
-                    yoff = e.y
+                    xOffset = e.x
+                    yOffset = e.y
                     xOffScreen = e.xOnScreen
                     yOffScreen = e.yOnScreen
                 }
@@ -76,48 +76,53 @@ object GUI : JFrame("Model Language IDE"), CoroutineScope by GlobalScope {
         override fun paintComponent(g: Graphics) {
             super.paintComponent(g)
             g.color = BACKGROUND_PRIMARY_COLOR
-            g.fillRect(0, 0, width+5, height+5)
+            g.fillRect(0, 0, width + 5, height + 5)
         }
     }
-    val fileMenu = JMenu("File").apply {
+    private val fileMenu = JMenu("File").apply {
         foreground = TEXT_COLOR
     }
-    val editMenu = JMenu("Edit").apply {
+    private val editMenu = JMenu("Edit").apply {
         foreground = TEXT_COLOR
     }
-    val viewMenu = JMenu("View").apply {
+    private val viewMenu = JMenu("View").apply {
         foreground = TEXT_COLOR
     }
-    val runMenu = JMenu("Run").apply {
+    private val runMenu = JMenu("Run").apply {
         foreground = TEXT_COLOR
     }
-    val newItem = JMenuItem("New").apply {
+    private val newItem = JMenuItem("New").apply {
         addActionListener { newFile() }
+        @Suppress("DEPRECATION") // Для обратной совместимости с JRE 8
         accelerator = KeyStroke.getKeyStroke('N'.toInt(), Toolkit.getDefaultToolkit().menuShortcutKeyMask)
     }
-    val openItem = JMenuItem("Open").apply {
+    private val openItem = JMenuItem("Open").apply {
         addActionListener { openFile() }
+        @Suppress("DEPRECATION") // Для обратной совместимости с JRE 8
         accelerator = KeyStroke.getKeyStroke('O'.toInt(), Toolkit.getDefaultToolkit().menuShortcutKeyMask)
     }
-    val saveItem = JMenuItem("Save").apply {
+    private val saveItem = JMenuItem("Save").apply {
         addActionListener { saveFile() }
+        @Suppress("DEPRECATION") // Для обратной совместимости с JRE 8
         accelerator = KeyStroke.getKeyStroke('S'.toInt(), Toolkit.getDefaultToolkit().menuShortcutKeyMask)
     }
-    val saveAsItem = JMenuItem("Save As").apply {
+    private val saveAsItem = JMenuItem("Save As").apply {
         addActionListener { saveAsFile() }
     }
-    val undoItem = JMenuItem("Undo").apply {
+    private val undoItem = JMenuItem("Undo").apply {
         addActionListener { if (undoManager.canUndo()) undoManager.undo() else Toolkit.getDefaultToolkit().beep() }
+        @Suppress("DEPRECATION") // Для обратной совместимости с JRE 8
         accelerator = KeyStroke.getKeyStroke('Z'.toInt(), Toolkit.getDefaultToolkit().menuShortcutKeyMask)
     }
-    val redoItem = JMenuItem("Redo").apply {
+    private val redoItem = JMenuItem("Redo").apply {
         addActionListener { if (undoManager.canRedo()) undoManager.redo() else Toolkit.getDefaultToolkit().beep() }
+        @Suppress("DEPRECATION") // Для обратной совместимости с JRE 8
         accelerator = KeyStroke.getKeyStroke('Y'.toInt(), Toolkit.getDefaultToolkit().menuShortcutKeyMask)
     }
-    val onTopItem = JCheckBoxMenuItem("Always On Top").apply {
+    private val onTopItem = JCheckBoxMenuItem("Always On Top").apply {
         addActionListener { e: ActionEvent? -> toggleOnTop() }
     }
-    val runItem = JMenuItem("Run").apply {
+    private val runItem = JMenuItem("Run").apply {
         addActionListener {
             val sb = StringBuilder()
             val environment = Environment {
@@ -142,7 +147,7 @@ object GUI : JFrame("Model Language IDE"), CoroutineScope by GlobalScope {
             openDialogWindow(sb.toString(), "Run")
         }
     }
-    val closeButton = JLabel(" X ").apply {
+    private val closeButton = JLabel(" X ").apply {
         foreground = TEXT_COLOR
         cursor = Cursor(Cursor.HAND_CURSOR)
         border = BorderFactory.createLineBorder(BACKGROUND_COLOR)
@@ -150,9 +155,11 @@ object GUI : JFrame("Model Language IDE"), CoroutineScope by GlobalScope {
             override fun mouseEntered(e: MouseEvent) {
                 foreground = Color.RED
             }
+
             override fun mouseExited(e: MouseEvent) {
                 foreground = TEXT_COLOR
             }
+
             override fun mousePressed(e: MouseEvent) {}
             override fun mouseReleased(e: MouseEvent) {}
             override fun mouseClicked(e: MouseEvent) {
@@ -161,7 +168,7 @@ object GUI : JFrame("Model Language IDE"), CoroutineScope by GlobalScope {
             }
         })
     }
-    val minButton = JLabel(" _ ").apply {
+    private val minButton = JLabel(" _ ").apply {
         foreground = TEXT_COLOR
         cursor = Cursor(Cursor.HAND_CURSOR)
         border = BorderFactory.createLineBorder(BACKGROUND_COLOR)
@@ -169,9 +176,11 @@ object GUI : JFrame("Model Language IDE"), CoroutineScope by GlobalScope {
             override fun mouseEntered(e: MouseEvent) {
                 foreground = Color.WHITE
             }
+
             override fun mouseExited(e: MouseEvent) {
                 foreground = TEXT_COLOR
             }
+
             override fun mousePressed(e: MouseEvent) {}
             override fun mouseReleased(e: MouseEvent) {}
             override fun mouseClicked(e: MouseEvent) {
@@ -179,7 +188,7 @@ object GUI : JFrame("Model Language IDE"), CoroutineScope by GlobalScope {
             }
         })
     }
-    val maxButton = JLabel(" \u1010 ").apply {
+    private val maxButton = JLabel(" \u1010 ").apply {
         foreground = TEXT_COLOR
         cursor = Cursor(Cursor.HAND_CURSOR)
         border = BorderFactory.createLineBorder(BACKGROUND_COLOR)
@@ -187,6 +196,7 @@ object GUI : JFrame("Model Language IDE"), CoroutineScope by GlobalScope {
             override fun mouseEntered(e: MouseEvent) {
                 foreground = Color.WHITE
             }
+
             override fun mouseExited(e: MouseEvent) {
                 foreground = TEXT_COLOR
             }
@@ -206,7 +216,7 @@ object GUI : JFrame("Model Language IDE"), CoroutineScope by GlobalScope {
         document.addUndoableEditListener(undoManager)
     }
 
-    val lineNumberPane: JTextPane = object : JTextPane() {
+    private val lineNumberPane: JTextPane = object : JTextPane() {
         private var lastLines = 0
 
         init {
@@ -260,7 +270,7 @@ object GUI : JFrame("Model Language IDE"), CoroutineScope by GlobalScope {
             override fun mouseMoved(e: MouseEvent) {}
             override fun mouseDragged(e: MouseEvent) {
                 if (!maximised) {
-                    setLocation(e.x + x - xoff, e.y + y - yoff)
+                    setLocation(e.x + x - xOffset, e.y + y - yOffset)
                 } else toggleMax(true, MAX_X or MAX_Y)
             }
         })
@@ -328,7 +338,7 @@ object GUI : JFrame("Model Language IDE"), CoroutineScope by GlobalScope {
         isVisible = true
     }
 
-    fun toggleOnTop() {
+    private fun toggleOnTop() {
         OnTop = !OnTop
         isAlwaysOnTop = OnTop
     }
@@ -359,37 +369,38 @@ object GUI : JFrame("Model Language IDE"), CoroutineScope by GlobalScope {
             state = NORMAL
             setSize(origW, origH)
             setLocation(xOffScreen - origW / 2, yOffScreen)
-            xoff = xOffScreen - xoff + origW / 2
-            yoff = yOffScreen
+            xOffset = xOffScreen - xOffset + origW / 2
+            yOffset = yOffScreen
             maximised = false
         }
     }
 
-    var filePath: String? = null
+    private var filePath: String? = null
 
-    fun newFile() {
+    private fun newFile() {
         filePath = null
         textPane.text = ""
     }
 
-    fun openFile() {
+    private fun openFile() {
         if (OnTop) isAlwaysOnTop = false
         val dialog = FileDialog(this, "Open", FileDialog.LOAD)
         dialog.isVisible = true
         if (dialog.file != null) {
-            filePath = dialog.directory + dialog.file
+            val filePath = (dialog.directory + dialog.file).also { this.filePath = it }
             textPane.text = File(filePath).readLines().joinToString("\n")
         }
         if (OnTop) isAlwaysOnTop = true
     }
 
-    fun saveFile() {
+    private fun saveFile() {
+        var filePath = filePath
         if (filePath == null) {
             if (OnTop) isAlwaysOnTop = false
             val dialog = FileDialog(this, "Save", FileDialog.SAVE)
             dialog.isVisible = true
             if (dialog.file != null) {
-                filePath = dialog.directory + dialog.file
+                filePath = (dialog.directory + dialog.file).also { this.filePath = it }
                 try {
                     val file = File(filePath)
                     file.createNewFile()
@@ -412,12 +423,12 @@ object GUI : JFrame("Model Language IDE"), CoroutineScope by GlobalScope {
         }
     }
 
-    fun saveAsFile() {
+    private fun saveAsFile() {
         if (OnTop) isAlwaysOnTop = false
         val dialog = FileDialog(this, "Save as", FileDialog.SAVE)
         dialog.isVisible = true
         if (dialog.file != null) {
-            filePath = dialog.directory + dialog.file
+            val filePath = (dialog.directory + dialog.file).also { this.filePath = it }
             try {
                 val file = File(filePath)
                 file.bufferedWriter().use {

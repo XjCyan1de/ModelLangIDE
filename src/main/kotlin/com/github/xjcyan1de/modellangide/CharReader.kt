@@ -1,9 +1,9 @@
 package com.github.xjcyan1de.modellangide
 
-class CharReader(val charArray: CharArray) {
-    var position: Int = 0
+class CharReader(private val charArray: CharArray) {
+    private var position: Int = 0
     var line = 1
-    var col = 0
+    private var col = 0
 
     fun next(): Char {
         val c = charArray[position++]
