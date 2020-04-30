@@ -1,16 +1,11 @@
 package com.github.xjcyan1de.modellangide
 
-import java.awt.Font
-import java.awt.GraphicsEnvironment
-import javax.swing.JFrame
-import javax.swing.JTextArea
-
 interface Token<T> {
     val value: T? get() = null
 }
 
 interface Expression
-data class ConditionExpression(val operator: Operator, val left: Expression, val right: Expression) : Expression {
+data class BinaryExpression(val operator: Operator, val left: Expression, val right: Expression) : SimpleExpression<String> {
     override fun toString(): String = "($left$operator$right)"
 }
 
@@ -22,11 +17,6 @@ data class Identifier(override val value: String) : SimpleExpression<String> {
 data class IntegerExpression(override val value: String) : SimpleExpression<String> {
     override fun toString(): String = value
 }
-
-data class FramingExpression(override val value: Expression) : SimpleExpression<Expression> {
-    override fun toString(): String = value.toString()
-}
-
 
 interface Statement
 class StatementList(val list: MutableList<Statement> = ArrayList()) : Token<MutableList<Statement>>, MutableList<Statement> by list {

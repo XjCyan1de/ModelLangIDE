@@ -38,8 +38,7 @@ class Environment(val output: (Int)->Unit) {
     fun evaluate(expression: Expression): Int = when(expression) {
         is IntegerExpression -> expression.value.toInt()
         is Identifier -> get(expression.value)
-        is FramingExpression -> evaluate(expression.value)
-        is ConditionExpression -> {
+        is BinaryExpression -> {
             val left = evaluate(expression.left)
             val right = evaluate(expression.right)
             val operator = expression.operator

@@ -96,11 +96,11 @@ class Parser(val reader: TokenReader) {
                 reader.next()
                 val nextAtom = parseAtom()
                 val nextBinary = parseBinary(nextAtom, precedence)
-                val nextExp = ConditionExpression(operator, left, nextBinary)
+                val nextExp = BinaryExpression(operator, left, nextBinary)
                 return parseBinary(nextExp, currentPrecedence)
             }
         }
-        return if (left is SimpleExpression<*>) left else FramingExpression(left)
+        return left as? SimpleExpression<*> ?: error("$left can't be as simple expression")
     }
 
     fun parseIf(): IfStatement {
