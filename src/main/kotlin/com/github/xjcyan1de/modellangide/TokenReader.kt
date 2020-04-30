@@ -1,8 +1,8 @@
 package com.github.xjcyan1de.modellangide
 
 class TokenReader(val charReader: CharReader) {
-    var current: SimpleExpression? = null
-    var next: SimpleExpression? = null
+    var current: SimpleExpression<*>? = null
+    var next: SimpleExpression<*>? = null
 
     fun readWhile(predicate: (Char) -> Boolean): String {
         val sb = StringBuilder()
@@ -46,7 +46,7 @@ class TokenReader(val charReader: CharReader) {
         charReader.next()
     }
 
-    fun readNext(): SimpleExpression? {
+    fun readNext(): SimpleExpression<*>? {
         readWhile { it.isWhiteSpace() }
         if (!charReader.hasNext()) return null
         val ch = charReader.peek()
@@ -62,9 +62,9 @@ class TokenReader(val charReader: CharReader) {
         }
     }
 
-    fun peek(): SimpleExpression? = current ?: readNext()?.also { current = it }
+    fun peek(): SimpleExpression<*>? = current ?: readNext()?.also { current = it }
 
-    fun next(): SimpleExpression? {
+    fun next(): SimpleExpression<*>? {
         val expression = current ?: readNext()
         current = null
         next = peek()

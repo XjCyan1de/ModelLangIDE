@@ -3,23 +3,23 @@ package com.github.xjcyan1de.modellangide
 import kotlin.reflect.KClass
 
 class Parser(val reader: TokenReader) {
-    inline fun <reified T : Token> skipToken(value: String) = skipToken(T::class, value)
-    fun <T : Token> skipToken(tokenClass: KClass<T>, value: String) {
+    inline fun <reified T : Token<*>> skipToken(value: String) = skipToken(T::class, value)
+    fun <T : Token<*>> skipToken(tokenClass: KClass<T>, value: String) {
         if (isToken(tokenClass, value)) reader.next()
         else reader.error("Expecting ${tokenClass.simpleName}: '$value'")
     }
 
-    inline fun <reified T : Token> isToken(value: String? = null): Boolean = isToken(T::class, value)
-    fun <T : Token> isToken(tokenClass: KClass<T>, value: String? = null): Boolean {
+    inline fun <reified T : Token<*>> isToken(value: String? = null): Boolean = isToken(T::class, value)
+    fun <T : Token<*>> isToken(tokenClass: KClass<T>, value: String? = null): Boolean {
         val expression = reader.peek()
         return expression != null && expression::class == tokenClass && if (value != null) expression.value == value else true
     }
 
-    inline fun <reified T : Token> expecting(): Nothing = expecting(T::class)
-    fun <T : Token> expecting(tokenClass: KClass<T>): Nothing = reader.error("Expecting ${tokenClass.simpleName}")
+    inline fun <reified T : Token<*>> expecting(): Nothing = expecting(T::class)
+    fun <T : Token<*>> expecting(tokenClass: KClass<T>): Nothing = reader.error("Expecting ${tokenClass.simpleName}")
 
-    inline fun <reified T : Token> checkToken() = checkToken(T::class)
-    fun <T : Token> checkToken(tokenClass: KClass<T>) {
+    inline fun <reified T : Token<*>> checkToken() = checkToken(T::class)
+    fun <T : Token<*>> checkToken(tokenClass: KClass<T>) {
         if (!isToken(tokenClass)) expecting(tokenClass)
     }
 
@@ -61,11 +61,11 @@ class Parser(val reader: TokenReader) {
         checkToken<Identifier>()
         val identifier = reader.next() as Identifier
         skipToken<Operator>("=")
-        val expression = reader.next() ?: expecting<SimpleExpression>()
+        val expression = reader.next() ?: expecting<SimpleExpression<*>>()
         return AssignStatement(identifier, expression)
     }
 
-    fun parseAtom(): SimpleExpression {
+    fun parseAtom(): SimpleExpression<*> {
         return when {
             isToken<Punctuation>("(") -> {
                 reader.next()
@@ -83,12 +83,12 @@ class Parser(val reader: TokenReader) {
         }
     }
 
-    fun parseExpression(): SimpleExpression = parseBinary(parseAtom(), 0)
+    fun parseExpression(): SimpleExpression<*> = parseBinary(parseAtom(), 0)
 
     //
     //  x * 2 + second / x * 3;
     //
-    fun parseBinary(left: Expression, currentPrecedence: Int = 0): SimpleExpression {
+    fun parseBinary(left: Expression, currentPrecedence: Int = 0): SimpleExpression<*> {
         val operator = reader.peek()
         if (operator is Operator) {
             val precedence = precedenceMap[operator.value] ?: -1
@@ -100,7 +100,7 @@ class Parser(val reader: TokenReader) {
                 return parseBinary(nextExp, currentPrecedence)
             }
         }
-        return if (left is SimpleExpression) left else FramingExpression(left)
+        return if (left is SimpleExpression<*>) left else FramingExpression(left)
     }
 
     fun parseIf(): IfStatement {

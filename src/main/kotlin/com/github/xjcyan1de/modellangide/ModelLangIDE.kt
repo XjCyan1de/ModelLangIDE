@@ -5,8 +5,8 @@ import java.awt.GraphicsEnvironment
 import javax.swing.JFrame
 import javax.swing.JTextArea
 
-interface Token {
-    val value: Any? get() = null
+interface Token<T> {
+    val value: T? get() = null
 }
 
 interface Expression
@@ -14,22 +14,22 @@ data class ConditionExpression(val operator: Operator, val left: Expression, val
     override fun toString(): String = "($left$operator$right)"
 }
 
-interface SimpleExpression : Expression, Token
-data class Identifier(override val value: String) : SimpleExpression {
+interface SimpleExpression<T> : Expression, Token<T>
+data class Identifier(override val value: String) : SimpleExpression<String> {
     override fun toString() = value
 }
 
-data class IntegerExpression(override val value: String) : SimpleExpression {
+data class IntegerExpression(override val value: String) : SimpleExpression<String> {
     override fun toString(): String = value
 }
 
-data class FramingExpression(override val value: Expression) : SimpleExpression {
+data class FramingExpression(override val value: Expression) : SimpleExpression<Expression> {
     override fun toString(): String = value.toString()
 }
 
 
 interface Statement
-class StatementList(val list: MutableList<Statement> = ArrayList()) : Token, MutableList<Statement> by list {
+class StatementList(val list: MutableList<Statement> = ArrayList()) : Token<MutableList<Statement>>, MutableList<Statement> by list {
     override fun toString(): String = list.toString()
 }
 
@@ -38,9 +38,9 @@ data class AssignStatement(val identifier: Identifier, val expression: Expressio
 data class IfStatement(val condition: Expression, val then: StatementList? = null, val orElse: StatementList? = null) : Statement
 
 
-data class KeyWord(override val value: String) : SimpleExpression
-data class Punctuation(override val value: String) : SimpleExpression
-data class Operator(override val value: String) : SimpleExpression {
+data class KeyWord(override val value: String) : SimpleExpression<String>
+data class Punctuation(override val value: String) : SimpleExpression<String>
+data class Operator(override val value: String) : SimpleExpression<String> {
     override fun toString(): String = value
 }
 
@@ -50,7 +50,6 @@ val opChars = listOf('@', '+', '-', '*', '/', '=', '!', '>', '<')
 val punctuationChars = listOf(';', '{', '}', '(', ')')
 val whiteSpaceChars = listOf(' ', '\t', '\n','\r')
 
-fun Char.isDigit() = "[0-9]".toRegex().matches(toString())
 fun Char.isLetter() = "[a-z]".toRegex().matches(toString())
 fun Char.isOperator() = opChars.contains(this)
 fun Char.isPunctuation() = punctuationChars.contains(this)
